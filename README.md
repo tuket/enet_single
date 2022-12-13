@@ -9,7 +9,7 @@ What's different from the original ENet:
 
 ## How to integrate in your project
 
-- Copy `enet.h` and `enet.c` to samo folder in your project.
+- Copy `enet.h` and `enet.c` to some folder in your project.
 - Add `enet.c` to the list of compiled files.
 
 ## How to integrate with CMake
