@@ -4882,6 +4882,9 @@ enet_socket_wait (ENetSocket socket, enet_uint32 * condition, enet_uint32 timeou
 #include <mmsystem.h>
 #include <windows.h>
 
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "winmm.lib")
+
 static enet_uint32 timeBase = 0;
 
 int
