@@ -12,8 +12,8 @@ What's different from the original ENet:
 - Copy `enet.h` and `enet.c` to some folder in your project.
 - Add `enet.c` to the list of compiled files.
 
-## How to integrate with CMake
+## How to integrate using CMake
 
 - Make an `enet/` subfolder in your project.
 - Copy `enet.h`, `enet.c` and `CMakeLists.txt` inside `enet/`.
-- Inside the CMakeList of your project, add `add_subdirectory(enet)` and `target_link_libraries(<my_project> <other_libs> enet)`.
+- Inside the CMakeLists.txt of your project, add `add_subdirectory(enet)` and `target_link_libraries(<my_project> <other_libs> enet)`.
