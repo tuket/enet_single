@@ -4,7 +4,7 @@ Fork of the [ENet](https://github.com/lsalzman/enet) library.
 
 What's different from the original ENet:
 - All code is contained in two files: `enet.h` and `enet.c` for easy integration in your project.
-- All system includes have moved into the `.c`. This is to avoid cluttering the global namespace. For example, the original ENet includes windows headers that define `min` and `max`, which can cause conflicts with user's functions.
+- All system includes have been moved into the `.c`. This is to avoid cluttering the global namespace. For example, the original ENet includes windows headers that define `min` and `max`, which can cause conflicts with user's functions.
 - There is a small `CMakeLists.txt` in case your project uses CMake (but it's entirely optional).
 
 ## How to integrate in your project
