@@ -4264,6 +4264,15 @@ enet_host_service (ENetHost * host, ENetEvent * event, enet_uint32 timeout)
     return 0; 
 }
 
+static int enet_is_lan_address(enet_uint32 ip)
+{
+    const enet_uint8* ip_u8 = (enet_uint8*)&ip;
+    return
+        (ip_u8[0] == 10) || // Class A: 10.0.0.0 to 10.255.255.255
+        (ip_u8[0] == 172 && (ip_u8[1] & 0x10)) || // Class B: 172.16.0.0 to 172.31.255.255
+        (ip_u8[0] == 192 && ip_u8[1] == 168); // Class C: 192.168.0.0 to 192.168.255.255
+}
+
 // ----- unix.c -----
 
 #ifndef _WIN32
@@ -4273,6 +4282,8 @@ enet_host_service (ENetHost * host, ENetEvent * event, enet_uint32 timeout)
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <string.h>
@@ -4435,7 +4446,8 @@ enet_address_get_host_ip (const ENetAddress * address, char * name, size_t nameL
 #ifdef HAS_INET_NTOP
     if (inet_ntop (AF_INET, & address -> host, name, nameLength) == NULL)
 #else
-    char * addr = inet_ntoa (* (struct in_addr *) & address -> host);
+    struct in_addr inAddr = {address -> host};
+    char * addr = inet_ntoa (inAddr);
     if (addr != NULL)
     {
         size_t addrLen = strlen(addr);
@@ -4719,8 +4731,9 @@ enet_socket_send (ENetSocket socket,
     
     if (sentLength == -1)
     {
-       if (errno == EWOULDBLOCK)
-         return 0;
+        //printf("enet_socket_send: ERROR: %s(%d)\n", strerror(errno), (int)errno);
+        if (errno == EWOULDBLOCK)
+            return 0;
 
        return -1;
     }
@@ -4781,7 +4794,7 @@ enet_socketset_select (ENetSocket maxSocket, ENetSocketSet * readSet, ENetSocket
     timeVal.tv_sec = timeout / 1000;
     timeVal.tv_usec = (timeout % 1000) * 1000;
 
-    return select (maxSocket + 1, readSet, writeSet, NULL, & timeVal);
+    return select (maxSocket + 1, (fd_set*)readSet, (fd_set*)writeSet, NULL, & timeVal);
 }
 
 int
@@ -4872,6 +4885,37 @@ enet_socket_wait (ENetSocket socket, enet_uint32 * condition, enet_uint32 timeou
 #endif
 }
 
+enet_uint32 enet_get_lan_broadcast_ip_addresses(enet_uint32 maxAddresses, enet_uint32* addresses)
+{
+    maxAddresses = addresses ? maxAddresses : 0;
+
+    struct ifaddrs* interfaceAddrs;
+    const int errCode = getifaddrs(&interfaceAddrs);
+    if (errCode != 0) {
+        // TODO: should free interfaceAddrs?
+        return 0;
+    }
+
+    enet_uint32 res = 0;
+    for (struct ifaddrs* a = interfaceAddrs; a; a = a->ifa_next) {
+        if (a->ifa_addr->sa_family == AF_INET) {
+            const struct sockaddr_in* inAddr = (struct sockaddr_in*)a->ifa_addr;
+            const struct sockaddr_in* inMask = (struct sockaddr_in*)a->ifa_netmask;
+            //const unsigned char* addrData = &inAddr->sin_addr.s_addr;
+            //printf("%s: %d.%d.%d.%d\n", a->ifa_name, (int)addrData[0], (int)addrData[1], (int)addrData[2], (int)addrData[3]);
+            const enet_uint32 ip = inAddr->sin_addr.s_addr;
+            const enet_uint32 mask = inMask->sin_addr.s_addr;
+            addresses[res] = ip | ~mask;
+            //const unsigned char* addrData = &addresses[res];
+            //printf("%s: %d.%d.%d.%d\n", a->ifa_name, (int)addrData[0], (int)addrData[1], (int)addrData[2], (int)addrData[3]);
+            res++;
+        }
+    }
+
+    freeifaddrs(interfaceAddrs);
+    return res;
+}
+
 #endif
 
 // ----- win32.c -----
@@ -4880,10 +4924,12 @@ enet_socket_wait (ENetSocket socket, enet_uint32 * condition, enet_uint32 timeou
 
 #include <winsock2.h>
 #include <mmsystem.h>
+#include <iphlpapi.h>
 #include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "iphlpapi.lib")
 
 static enet_uint32 timeBase = 0;
 
@@ -5314,17 +5360,41 @@ enet_socket_wait (ENetSocket socket, enet_uint32 * condition, enet_uint32 timeou
     return 0;
 } 
 
+enet_uint32 enet_get_lan_broadcast_ip_addresses(enet_uint32 maxAddresses, enet_uint32* addresses)
+{
+    maxAddresses = addresses ? maxAddresses : 0;
+
+    const enet_uint32 BUFFER_SIZE = 32 << 10;
+    MIB_IPADDRTABLE* table = malloc(BUFFER_SIZE);
+    ULONG bufferSize = BUFFER_SIZE;
+    const DWORD  error = GetIpAddrTable(table, &bufferSize, 0);
+    if (error != NO_ERROR) {
+        free((void*)table);
+        return 0;
+    }
+
+    enet_uint32 res = 0;
+    for (DWORD entryInd = 0; entryInd < table->dwNumEntries && entryInd < maxAddresses; entryInd++) {
+        MIB_IPADDRROW* row = table->table + entryInd;
+        addresses[res] = row->dwAddr | ~row->dwMask;
+        res++;
+    }
+
+    free((void*)table);
+    return res;
+}
+
 #endif
 
 void ENET_SOCKETSET_EMPTY_PTR(ENetSocketSet* socketSet) {
-    FD_ZERO(socketSet);
+    FD_ZERO((fd_set*)socketSet);
 }
 void ENET_SOCKETSET_ADD_PTR(ENetSocketSet* socketSet, ENetSocket socket) {
-    FD_SET(socket, socketSet);
+    FD_SET(socket, (fd_set*)socketSet);
 }
 void ENET_SOCKETSET_CLR_PTR(ENetSocketSet* socketSet, ENetSocket socket) {
-    FD_CLR(socket, socketSet);
+    FD_CLR(socket, (fd_set*)socketSet);
 }
 int  ENET_SOCKETSET_CHECK_PTR(ENetSocketSet* socketSet, ENetSocket socket) {
-    return FD_ISSET(socket, socketSet);
+    return FD_ISSET(socket, (fd_set*)socketSet);
 }

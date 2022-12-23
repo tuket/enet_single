@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -17,26 +18,35 @@ typedef uint32_t enet_uint32;      /**< unsigned 32-bit type */
     typedef uintptr_t ENetSocket;
     #define ENET_SOCKET_NULL (ENetSocket)(~0)
     #define ENET_CALLBACK __cdecl
+
+   typedef struct
+   {
+      size_t dataLength;
+      void * data;
+   } ENetBuffer;
+
 #else
     typedef int ENetSocket;
     #define ENET_SOCKET_NULL -1
     #define ENET_CALLBACK
+
+   typedef struct
+   {
+      void * data;
+      size_t dataLength;
+   } ENetBuffer;
 #endif
 
-#ifndef ENET_FD_SETSIZE
-    #define ENET_FD_SETSIZE 64
-#endif
-
-typedef struct ENetSocketSet {
-    unsigned fd_count;
-    ENetSocket fd_array[ENET_FD_SETSIZE];
-} ENetSocketSet;
-
-typedef struct
+static inline ENetBuffer enet_make_buffer(size_t size, void* data)
 {
-    size_t dataLength;
-    void * data;
-} ENetBuffer;
+   ENetBuffer buffer;
+   buffer.dataLength = size;
+   buffer.data = data;
+   return buffer;
+}
+
+struct ENetSocketSet;
+typedef struct ENetSocketSet ENetSocketSet;
 
 enum
 {
@@ -894,6 +904,8 @@ ENET_API size_t enet_range_coder_compress (void *, const ENetBuffer *, size_t, s
 ENET_API size_t enet_range_coder_decompress (void *, const enet_uint8 *, size_t, enet_uint8 *, size_t);
    
 extern size_t enet_protocol_command_size (enet_uint8);
+
+ENET_API enet_uint32 enet_get_lan_broadcast_ip_addresses(enet_uint32 maxAddresses, enet_uint32* addresses);
 
 #ifdef __cplusplus
 }
