@@ -7,7 +7,6 @@ What's different from the original ENet:
 - All system includes have been moved into the `.c`. This is to avoid cluttering the global namespace. For example, the original ENet includes windows headers that define `min` and `max`, which can cause conflicts with user's functions.
 - There is a small `CMakeLists.txt` in case your project uses CMake (but it's entirely optional).
 - Added `enet_get_lan_broadcast_ip_addresses` function. It helps you find out the IP addresses you can use to broadcast messages in the LAN.
-- Fixed a small bug in the Linux implementation of implementation of `enet_address_get_host_ip`.
 
 ## How to integrate in your project
 
