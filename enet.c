@@ -4264,15 +4264,6 @@ enet_host_service (ENetHost * host, ENetEvent * event, enet_uint32 timeout)
     return 0; 
 }
 
-static int enet_is_lan_address(enet_uint32 ip)
-{
-    const enet_uint8* ip_u8 = (enet_uint8*)&ip;
-    return
-        (ip_u8[0] == 10) || // Class A: 10.0.0.0 to 10.255.255.255
-        (ip_u8[0] == 172 && (ip_u8[1] & 0x10)) || // Class B: 172.16.0.0 to 172.31.255.255
-        (ip_u8[0] == 192 && ip_u8[1] == 168); // Class C: 192.168.0.0 to 192.168.255.255
-}
-
 // ----- unix.c -----
 
 #ifndef _WIN32
